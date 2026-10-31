@@ -1,0 +1,22 @@
+const sel=(id,l,o)=>`<label>${l}<select id=${id}>${o.map(x=>`<option>${x}</option>`).join('')}</select></label>`;
+let cur=qs('loc')||'Masjid Bunder',dc;
+$('#app').innerHTML=`<h1>Geographic Intelligence: Central Mumbai</h1><div class=bar>${sel('fs','Historical status',['All',...ST])}${sel('fp','Matching parameter',['All',...Object.keys(PARAM)])}${sel('fv','Map view',['Registration concentration','Suspended concentration','Parameter concentration','Historical outcome distribution'])}${sel('fl','Locality',['All',...LOC.map(l=>l.n)])}</div>
+<div class="g g21"><div class=card><h3>Locality map <span class=note>(schematic, not an authoritative boundary map; marker size = record count)</span></h3><svg id=map viewBox="0 0 800 580" style="width:100%;background:#eaf1f8;border-radius:4px"></svg><div id=sum class=note></div></div><div class=card id=det></div></div>`;
+const arc=(x,y,r,a0,a1)=>{const p=a=>[x+r*Math.sin(a),y-r*Math.cos(a)];const[s,e]=[p(a0),p(a1)];return`M${x},${y}L${s}L${e}`.replace(/,(?=-?\d)/g,',')&&`M${x} ${y}L${s[0]} ${s[1]}A${r} ${r} 0 ${a1-a0>Math.PI?1:0} 1 ${e[0]} ${e[1]}Z`};
+function val(l){const s=fs.value,i=ST.indexOf(s),v=fv.value;let b=v==='Suspended concentration'?l.c[0]:i>=0?l.c[i]:l.t;if(fp.value!=='All')b=b*PW[fp.value]*(l.top===fp.value?1.3:1);return Math.round(b)}
+function draw(){const v=fv.value,col=v==='Suspended concentration'?SC[0]:ST.indexOf(fs.value)>=0?SC[ST.indexOf(fs.value)]:'#1f5fbf';
+let h=`<path d="M0 0H190C170 120 215 260 200 400C190 480 170 520 150 580H0Z" fill="#d6e4f2"/><text x="40" y="300" fill="#7b93ad" font-size="13">Arabian Sea / harbour</text>`;
+LOC.filter(l=>fl.value==='All'||fl.value===l.n).forEach(l=>{const vv=val(l),r=8+Math.sqrt(vv)*1.1,on=l.n===cur;
+if(v==='Historical outcome distribution'){let a=0;const t=l.c.reduce((x,y)=>x+y);h+=`<g style="cursor:pointer" onclick="pick('${l.n}')">`+l.c.map((c,i)=>{const d=c/t*2*Math.PI,p=`<path d="${arc(l.x,l.y,8+Math.sqrt(t)*.9,a,a+d)}" fill="${SC[i]}" opacity=".85"/>`;a+=d;return p}).join('')+`</g>`}
+else h+=`<circle cx=${l.x} cy=${l.y} r=${r} fill="${col}" fill-opacity=".45" stroke="${col}" stroke-width="${on?4:1.5}" style="cursor:pointer" onclick="pick('${l.n}')"/>`;
+h+=`<text x=${l.x} y=${l.y+4} text-anchor=middle font-size=11 font-weight=600 fill="#12203a" pointer-events=none>${l.n}</text>`});
+map.innerHTML=h;const ls=LOC.filter(l=>fl.value==='All'||fl.value===l.n),tt=ls.reduce((a,l)=>a+val(l),0);
+sum.innerHTML=`Showing ${ls.length} localities · displayed value total ${fmt(tt)}${fp.value!=='All'?' (parameter view apportions counts using illustrative parameter shares)':''}.`}
+function pick(n){cur=n;draw();const l=LOC.find(x=>x.n===n),T=a=>pc(a,l.t);
+det.innerHTML=`<h3>${n}</h3><div style="display:grid;grid-template-columns:1fr 1fr;gap:4px"><div>Total records <b>${fmt(l.t)}</b></div>${l.c.map((c,i)=>`<div>${badge(i)} <b>${fmt(c)}</b></div>`).join('')}</div><div class=ch style="height:160px"><canvas id=dc></canvas></div>
+<table><tbody><tr><td>Share of all records<td class=n>${pc(l.t,N)}<tr><td>Suspended proportion in locality<td class=n>${T(l.c[0])}<tr><td>Most frequently matched parameter<td class=n>${l.top}<tr><td>Repeated mobile identifiers<td class=n>${l.mob}<tr><td>Repeated PAN identifiers<td class=n>${l.pan}<tr><td>Address similarity groups<td class=n>${l.addr}<tr><td>Connected historical clusters<td class=n>${l.cl}</tbody></table>
+<p><b>Insight:</b> ${n} has ${l.c[0]} suspended registrations in this illustrative dataset (${T(l.c[0])} of its ${fmt(l.t)} records). ${l.top} repetition is the most frequently observed matching parameter here.</p>
+<div class=row><a class=btn href="analytics.html?loc=${encodeURIComponent(n)}">View historical records</a><a class="btn o" href="analytics.html?loc=${encodeURIComponent(n)}">View parameter analysis</a><a class="btn o" href="network.html">Explore connected clusters</a></div>
+<div class=safe>Absolute counts reflect business volume. No registration-density denominator (e.g. total businesses per locality) is available in this prototype, so no locality is characterised as suspicious.</div>`;
+if(window.dcc)dcc.destroy();window.dcc=new Chart(document.getElementById('dc'),{type:'bar',data:{labels:ST,datasets:[{data:l.c,backgroundColor:SC}]},options:{maintainAspectRatio:false,plugins:{legend:{display:false}}}})}
+[fs,fp,fv,fl].forEach(e=>e.onchange=()=>{if(e===fl&&fl.value!=='All')cur=fl.value;draw();pick(cur)});draw();pick(cur);
